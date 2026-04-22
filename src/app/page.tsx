@@ -1,65 +1,112 @@
-import Image from "next/image";
+import { getTradeLog, getState } from "@/lib/data";
+import { computeStats } from "@/lib/analytics";
+import { Card, Stat } from "@/components/Card";
+import { EquityCurve } from "@/components/EquityCurve";
+import { PnlBarChart } from "@/components/BarChart";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Dashboard() {
+  const [trades, state] = await Promise.all([getTradeLog(), getState()]);
+  const stats = computeStats(trades);
+  const positions = Object.values(state.positions || {});
+
+  if (!stats) return <div className="text-gray-500">Loading trades...</div>;
+
+  const symbolData = Object.entries(stats.bySymbol)
+    .map(([name, s]) => ({ name, pnl: Math.round(s.pnl * 100) / 100 }))
+    .sort((a, b) => b.pnl - a.pnl);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold">Dashboard</h1>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <Card>
+          <Stat label="Total P&L" value={`$${stats.totalPnl >= 0 ? "+" : ""}${stats.totalPnl}`}
+                color={stats.totalPnl >= 0 ? "text-emerald-400" : "text-red-400"} />
+        </Card>
+        <Card>
+          <Stat label="Win Rate" value={`${(stats.winRate * 100).toFixed(0)}%`}
+                sub={`${stats.totalTrades} trades`} />
+        </Card>
+        <Card>
+          <Stat label="Profit Factor" value={stats.profitFactor}
+                color={stats.profitFactor >= 1 ? "text-emerald-400" : "text-red-400"} />
+        </Card>
+        <Card>
+          <Stat label="Sharpe" value={stats.sharpe}
+                color={stats.sharpe >= 1 ? "text-emerald-400" : "text-yellow-400"} />
+        </Card>
+        <Card>
+          <Stat label="Max Drawdown" value={`$${stats.maxDrawdown}`} color="text-red-400" />
+        </Card>
+        <Card>
+          <Stat label="VaR 95%" value={`$${stats.var95}`}
+                sub="daily" color="text-yellow-400" />
+        </Card>
+      </div>
+
+      <Card title={`Open Positions (${positions.length})`}>
+        {positions.length === 0 ? (
+          <div className="text-gray-500 text-sm">No open positions</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-gray-500 text-xs uppercase">
+                  <th className="text-left py-2">Token</th>
+                  <th className="text-left">Dir</th>
+                  <th className="text-right">Entry</th>
+                  <th className="text-right">SL</th>
+                  <th className="text-right">TP</th>
+                  <th className="text-right">Collateral</th>
+                  <th className="text-right">Held</th>
+                  <th className="text-left">Protocol</th>
+                </tr>
+              </thead>
+              <tbody>
+                {positions.map((p) => (
+                  <tr key={p.symbol} className="border-t border-gray-800">
+                    <td className="py-2 font-medium">{p.symbol}</td>
+                    <td className={p.direction === "long" ? "text-emerald-400" : "text-red-400"}>
+                      {p.direction.toUpperCase()}
+                    </td>
+                    <td className="text-right">${p.entry.toFixed(2)}</td>
+                    <td className="text-right text-red-400">${p.sl.toFixed(2)}</td>
+                    <td className="text-right text-emerald-400">${p.tp.toFixed(2)}</td>
+                    <td className="text-right">${p.collateral_usdc}</td>
+                    <td className="text-right">{p.hours_held?.toFixed(1)}h</td>
+                    <td className="text-gray-400">{p.protocol}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card title="Equity Curve">
+          <EquityCurve equity={stats.equity} />
+        </Card>
+        <Card title="P&L by Token">
+          <PnlBarChart data={symbolData} />
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card><Stat label="Avg Win" value={`$${stats.avgWin}`} color="text-emerald-400" /></Card>
+        <Card><Stat label="Avg Loss" value={`$${stats.avgLoss}`} color="text-red-400" /></Card>
+        <Card><Stat label="Expectancy" value={`$${stats.expectancy}/trade`}
+              color={stats.expectancy >= 0 ? "text-emerald-400" : "text-red-400"} /></Card>
+        <Card><Stat label="Loss Streak" value={`${stats.maxLossStreak} max`}
+              sub={`${stats.currentLossStreak} current`} /></Card>
+      </div>
+
+      <div className="text-xs text-gray-600 text-center">
+        Data refreshes every 5 minutes from GitHub repo
+      </div>
     </div>
   );
 }
