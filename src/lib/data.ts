@@ -74,6 +74,28 @@ export async function getWalkForwardReport() {
   return readLocal("walkforward_report.json");
 }
 
+export async function getDriftHistory(): Promise<Array<{
+  date: string;
+  n_trades: number;
+  loo_accuracy: number;
+  drift_summary: {
+    flagged_count: number;
+    retrain_recommended: boolean;
+    top_3: Array<{ feature: string; psi: number; severity: string; ref_mean: number; new_mean: number }>;
+  };
+}>> {
+  const data = readLocal("ml_drift_history.json");
+  return Array.isArray(data) ? data : [];
+}
+
+export async function getFreshMetadata() {
+  return readLocal("ml_fresh_metadata.json");
+}
+
+export async function getFeatureHalflife() {
+  return readLocal("ml_feature_halflife.json");
+}
+
 export interface ShadowEntry {
   timestamp: string;
   symbol: string;
