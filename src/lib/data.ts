@@ -101,11 +101,25 @@ export interface ShadowEntry {
   symbol: string;
   direction: string;
   ml_score: number | null;
+  ml_score_raw?: number | null;       // 2026-04-23+: raw ensemble before polarity bonus
+  polarity_bonus?: number | null;     // 2026-04-23+: hybrid rule adjustment
+  polarity_breakdown?: Record<string, number>;  // 2026-04-23+
   signal_reason: string;
+  features?: Record<string, number | null>;
   outcome?: {
-    pnl_usdc: number;
-    profitable: number;
-    exit_reason: string;
+    // Real-trade outcome fields (from backfill_ml_outcomes.py matching)
+    pnl_usdc?: number;
+    pnl_pct?: number;
+    profitable?: number;
+    exit_reason?: string;
+    hours_held?: number;
+    // Synthetic-outcome fields (from backfill_shadow_outcomes.py forward-price fill)
+    synthetic?: boolean;
+    forward_return_pct?: number;
+    forward_price?: number;
+    entry_price?: number;
+    hold_hours?: number;
+    backfilled_at?: string;
   } | null;
 }
 
