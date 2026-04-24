@@ -192,16 +192,22 @@ export default async function RiskPage() {
       </Card>
 
       {/* Position sizing stack */}
-      <Card title="Position Sizing Stack — min(reducers) × ML boost (not multiplicative)">
+      <Card title="Position Sizing Stack — min(reducers) × min(2.0, ML × PF boost)">
         <div className="text-xs text-gray-500 mb-3">
-          Reducers compete — the deepest applies once. ML boost multiplies on top for high-conviction scores.
-          Changed 2026-04-20 from multiplicative (which collapsed sizes to ~$0) to min-of-reducers.
+          Reducers compete via <code>min()</code> — deepest floor wins.
+          Two boosts stack via multiplication, then cap at 2.0×: the ML-score boost (recent conviction) and
+          the backtest-PF boost (long-run historical edge, 2026-04-23 Kelly-via-PF).
+          Gate threshold is indexed to the signal&apos;s backtest PF — strong edges get a lower block floor.
         </div>
         <div className="text-sm space-y-1">
           {[
             ["Base position", "$800 (20% × $4,000)", ""],
             ["— Hard gates (trade blocked) —", "", "text-gray-500"],
-            ["ML score < 0.35", "BLOCK", "text-red-400"],
+            ["ML score < gate threshold", "BLOCK", "text-red-400"],
+            ["  Gate 0.20 if backtest PF ≥ 2.0", "(SPYX/TSLAX/NVDAX/AAPLX/CRUDEOIL.long, etc.)", "text-gray-500"],
+            ["  Gate 0.25 if backtest PF ≥ 1.5", "(HYPE.long, NATGAS.short, AMZNX, AMDX)", "text-gray-500"],
+            ["  Gate 0.30 if backtest PF ≥ 1.3", "(WBTC.long, SOL.long, ZEC.long, CRUDEOIL.short)", "text-gray-500"],
+            ["  Gate 0.35 otherwise", "(uncatalogued or weak-backtest signals)", "text-gray-500"],
             ["Weekend shorts", "BLOCK", "text-red-400"],
             ["14:00 UTC (US equity open)", "BLOCK", "text-red-400"],
             ["— Size reducers (min applies) —", "", "text-gray-500"],
@@ -216,10 +222,19 @@ export default async function RiskPage() {
             ["3+ loss streak", "floor 0.50×", "text-yellow-400"],
             ["2 loss streak", "floor 0.75×", "text-yellow-400"],
             ["Signal confidence", "floor 0.50–1.00×", "text-yellow-400"],
-            ["— ML boost (stacks on top) —", "", "text-gray-500"],
-            ["ML score 0.35 – 0.55", "1.00× (baseline)", "text-gray-300"],
+            ["— ML score boost (recent conviction) —", "", "text-gray-500"],
+            ["ML score gate..0.55", "1.00× (baseline)", "text-gray-300"],
             ["ML score 0.55 – 0.70", "1.50× boost", "text-emerald-400"],
             ["ML score ≥ 0.70", "1.75× boost", "text-emerald-400"],
+            ["— PF boost (long-run edge, new 2026-04-23) —", "", "text-gray-500"],
+            ["Backtest PF ≥ 2.5", "1.50× boost", "text-emerald-400"],
+            ["Backtest PF ≥ 2.0", "1.35× boost", "text-emerald-400"],
+            ["Backtest PF ≥ 1.7", "1.20× boost", "text-emerald-400"],
+            ["Backtest PF ≥ 1.5", "1.10× boost", "text-gray-300"],
+            ["Backtest PF ≥ 1.3", "1.05× boost", "text-gray-300"],
+            ["Backtest PF < 1.3 / uncatalogued", "1.00× (baseline)", "text-gray-300"],
+            ["— Combined boost (capped) —", "", "text-gray-500"],
+            ["Total boost = min(2.0, ML × PF)", "max 2.0× base", "text-emerald-400"],
           ].map(([label, value, color]) => (
             <div key={label} className="flex justify-between py-1 border-b border-gray-800">
               <span className="text-gray-400">{label}</span>
@@ -228,11 +243,11 @@ export default async function RiskPage() {
           ))}
           <div className="flex justify-between py-2 mt-2 text-xs text-gray-500">
             <span>Worst case (no block hit)</span>
-            <span>$800 × 0.25 = $200 (no boost)</span>
+            <span>$800 × 0.25 × 1.00 = $200</span>
           </div>
           <div className="flex justify-between text-xs text-gray-500">
-            <span>Best case (top-bucket ML, no reducers)</span>
-            <span>$800 × 1.75 = $1,400</span>
+            <span>Best case (top-ML + top-PF, no reducers, capped)</span>
+            <span>$800 × 2.00 = $1,600</span>
           </div>
         </div>
       </Card>
